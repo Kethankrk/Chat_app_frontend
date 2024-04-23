@@ -2,21 +2,20 @@ import React, { useEffect, useState } from "react";
 import ChatMessage from "./ChatMessage";
 import axios from "axios";
 
-function Chat({ id, user }) {
-  const [messageList, setMessageList] = useState([]);
+function Chat({ id, user, sendMessageFunc, setMessageList, messageList }) {
   const [isLoading, setIsLoading] = useState(true);
   const [currentMessage, setCurrentMessage] = useState("");
-  const [socket, setSocket] = useState(null);
   const userId = localStorage.getItem("id");
 
   const sendMessage = () => {
     if (!currentMessage) return;
-    const message = JSON.stringify({
+    const data = JSON.stringify({
       type: "message",
       message: currentMessage,
       sender: userId,
+      receiver: `${user.id}`,
     });
-    socket.send(message);
+    sendMessageFunc(data);
     setCurrentMessage("");
   };
 
@@ -33,26 +32,6 @@ function Chat({ id, user }) {
         setIsLoading(false);
       }
     })();
-    const socket = new WebSocket(`ws://127.0.0.1:8000/ws/socket-server/${id}/`);
-
-    setSocket(socket);
-
-    socket.onopen = () => {
-      console.log("Websocket Connection successfull");
-    };
-    socket.onmessage = (msg) => {
-      msg = JSON.parse(msg.data);
-      setMessageList((prev) => [
-        ...prev,
-        { sender: msg.sender, message: msg.message },
-      ]);
-    };
-
-    return () => {
-      console.log("Closing websocket connection");
-      setMessageList([]);
-      socket.close();
-    };
   }, [id]);
   const messageJsx = messageList.map((msg) => (
     <ChatMessage

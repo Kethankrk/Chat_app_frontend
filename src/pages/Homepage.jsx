@@ -7,10 +7,18 @@ import { useNavigate } from "react-router-dom";
 import { getReq } from "../helper/httpReq";
 
 function Homepage() {
-  const [activeMessage, setActiveMessage] = useState(null);
+  const [activeInbox, setActiveInbox] = useState(null);
   const [inbox, setInbox] = useState([]);
   const [activeUser, setActiveUser] = useState({});
+  const [socket, setSocket] = useState(null);
+  const [messageList, setMessageList] = useState([]);
   const navigate = useNavigate();
+
+  const sentWebsocketMessages = (data) => {
+    if (!data) return;
+    socket.send(data);
+  };
+
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -23,10 +31,58 @@ function Homepage() {
       }
       setInbox(response.data);
     })();
+
+    const socket = new WebSocket(`ws://127.0.0.1:8000/ws/socket-server/`);
+
+    setSocket(socket);
+
+    socket.onopen = () => {
+      console.log("Websocket Connection successfull");
+      const data = JSON.stringify({
+        type: "auth",
+        token,
+      });
+      socket.send(data);
+    };
+    socket.onmessage = (msg) => {
+      msg = JSON.parse(msg.data);
+      if (msg.type == "notification") {
+        console.log(msg);
+        return;
+      }
+      setMessageList((prev) => [
+        ...prev,
+        { sender: msg.sender, message: msg.message },
+      ]);
+    };
+
+    socket.onclose = (msg) => {
+      console.log("connection closed ......");
+    };
+    return () => {
+      console.log("Closing websocket connection");
+      setMessageList([]);
+      socket.close();
+    };
   }, []);
 
-  let sidePage = activeMessage ? (
-    <Chat id={activeMessage} user={activeUser} />
+  useEffect(() => {
+    if (!activeInbox) return;
+    const message = JSON.stringify({
+      type: "join_room",
+      room: `${activeInbox}`,
+    });
+    socket.send(message);
+  }, [activeInbox]);
+
+  let sidePage = activeInbox ? (
+    <Chat
+      id={activeInbox}
+      user={activeUser}
+      sendMessageFunc={sentWebsocketMessages}
+      messageList={messageList}
+      setMessageList={setMessageList}
+    />
   ) : (
     <Welcome />
   );
@@ -39,7 +95,7 @@ function Homepage() {
             <UserCard
               key={item.id}
               id={item.id}
-              setActive={setActiveMessage}
+              setActive={setActiveInbox}
               lastMessage={item.last_message}
               user={item.user}
               setActiveUser={setActiveUser}
