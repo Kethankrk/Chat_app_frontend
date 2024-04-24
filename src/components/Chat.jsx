@@ -37,6 +37,7 @@ function Chat({ id, user, sendMessageFunc, setMessageList, messageList }) {
     <ChatMessage
       side={msg.sender != userId ? "left-chat" : "right-chat"}
       text={msg.message}
+      seen={msg.seen}
     />
   ));
   return (

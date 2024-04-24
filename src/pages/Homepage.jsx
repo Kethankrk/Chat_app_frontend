@@ -13,6 +13,7 @@ function Homepage() {
   const [socket, setSocket] = useState(null);
   const [messageList, setMessageList] = useState([]);
   const navigate = useNavigate();
+  const userId = localStorage.getItem("id");
 
   const sentWebsocketMessages = (data) => {
     if (!data) return;
@@ -47,12 +48,29 @@ function Homepage() {
     socket.onmessage = (msg) => {
       msg = JSON.parse(msg.data);
       if (msg.type == "notification") {
-        console.log(msg);
+        if (msg.inbox == activeInbox) return;
+        setInbox((prev) =>
+          prev.map((item) => {
+            if (item.id == msg.inbox) {
+              return { ...item, notification: 1, last_message: msg.message };
+            }
+            return item;
+          })
+        );
         return;
+      }
+      if (msg.receiver == userId) {
+        console.log("sending seen");
+        socket.send(
+          JSON.stringify({
+            type: "msg_seen",
+            id: msg.id,
+          })
+        );
       }
       setMessageList((prev) => [
         ...prev,
-        { sender: msg.sender, message: msg.message },
+        { sender: msg.sender, message: msg.message, id: msg.id },
       ]);
     };
 
@@ -88,7 +106,7 @@ function Homepage() {
   );
   return (
     <main className="flex h-screen">
-      <div className="min-w-[350px] w-[400px] lg:w-[500px] bg-[#121b22]">
+      <div className="w-[250px] md:w-[300px] lg:w-[500px] bg-[#121b22]">
         <SideNav />
         <div className="">
           {inbox.map((item) => (
@@ -99,6 +117,7 @@ function Homepage() {
               lastMessage={item.last_message}
               user={item.user}
               setActiveUser={setActiveUser}
+              notification={item.notification}
             />
           ))}
         </div>
